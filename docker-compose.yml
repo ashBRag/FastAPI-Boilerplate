@@ -1,0 +1,50 @@
+# Hot-reload dev stack: API + Taskiq worker.
+# Postgres and Redis are on the external backend-internal network.
+
+name: fastapi-boilerplate
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    env_file:
+      - .env
+    environment:
+      POSTGRES_SERVER: postgres
+      CACHE_REDIS_HOST: redis
+      RATE_LIMITER_REDIS_HOST: redis
+      TASKIQ_REDIS_HOST: redis
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    ports:
+      - "8000:8000"
+    networks:
+      - backend-internal
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    env_file:
+      - .env
+    environment:
+      POSTGRES_SERVER: postgres
+      CACHE_REDIS_HOST: redis
+      RATE_LIMITER_REDIS_HOST: redis
+      TASKIQ_REDIS_HOST: redis
+    working_dir: /app/src
+    command: >
+      taskiq worker infrastructure.taskiq.worker:default_broker
+      --reload
+    volumes:
+      - ./src:/app/src
+    networks:
+      - backend-internal
+
+networks:
+  backend-internal:
+    external: true
