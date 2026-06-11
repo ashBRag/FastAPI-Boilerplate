@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings
 from starlette.config import Config
 
 from .enums import CacheBackend, LogFormat, LogLevel, SessionBackend, TaskiqBrokerType
+from ...database.mongodb.config import MongoDBSettings
+
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +380,8 @@ class Settings(
     SecuritySettings,
     LoggingSettings,
     TaskiqSettings,
+    MongoDBSettings,
+
 ):
     """Main settings class that combines all setting categories."""
 

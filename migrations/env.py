@@ -10,7 +10,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from src.infrastructure.config.settings import settings
-from src.infrastructure.database.session import Base
+from src.infrastructure.database.postgresql.session import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

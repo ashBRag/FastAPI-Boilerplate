@@ -24,7 +24,7 @@ from .config.settings import (
     Settings,
     get_settings,
 )
-from .database.session import create_tables
+from .database.postgresql.session import create_tables
 from .middleware import ClientCacheMiddleware, SecurityHeadersMiddleware
 from .rate_limit.initialize import close_rate_limiter, initialize_rate_limiter
 from .rate_limit.middleware import RateLimiterMiddleware

@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.infrastructure.database.session import async_session
+from src.infrastructure.database.postgresql.session import async_session
 
 pytestmark = pytest.mark.asyncio
 

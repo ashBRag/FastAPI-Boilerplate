@@ -16,7 +16,7 @@ from testcontainers.core.docker_client import DockerClient
 # mypy: disable-error-code="import-untyped"
 from testcontainers.postgres import PostgresContainer
 from src.infrastructure.config.settings import Settings, get_settings
-from src.infrastructure.database.session import Base, async_session
+from src.infrastructure.database.postgresql.session import Base, async_session
 from src.interfaces.main import app
 
 os.environ["SQLITE_URI"] = ":memory:"
