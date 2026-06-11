@@ -25,6 +25,8 @@ dependencies = [
     "taskiq-redis>=1.1.2",
     "taskiq-aio-pika>=0.4.3",
     "motor>=3.7.1",
+    "aiomysql>=0.3.2",
+    "pymysql>=1.2.0",
 ]
 
 [project.optional-dependencies]

@@ -7,6 +7,7 @@ from starlette.config import Config
 
 from .enums import CacheBackend, LogFormat, LogLevel, SessionBackend, TaskiqBrokerType
 from ...database.mongodb.config import MongoDBSettings
+from ...database.mysql.config import MySQLSettings 
 
 
 logger = logging.getLogger(__name__)
@@ -381,6 +382,7 @@ class Settings(
     LoggingSettings,
     TaskiqSettings,
     MongoDBSettings,
+    MySQLSettings
 
 ):
     """Main settings class that combines all setting categories."""
