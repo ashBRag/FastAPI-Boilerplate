@@ -12,7 +12,7 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_SERVER: postgres
+      POSTGRES_SERVER: postgresql
       CACHE_REDIS_HOST: redis
       RATE_LIMITER_REDIS_HOST: redis
       TASKIQ_REDIS_HOST: redis
