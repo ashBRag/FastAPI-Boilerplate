@@ -10,6 +10,7 @@ from ..database.postgresql.config import PostgreSQLSettings
 from ..kafka.config import KafkaSettings
 from ..rate_limit.config import RateLimiterSettings
 from ..taskiq.config import TaskiqSettings
+from ..vault.config import VaultSettings
 from .base import (
     AdminSettings,
     APIDocSettings,
@@ -62,6 +63,7 @@ class Settings(
     RateLimiterSettings,
     TaskiqSettings,
     KafkaSettings,
+    VaultSettings
 ):
     """Assembled settings — imports only, no field definitions here."""
     pass
