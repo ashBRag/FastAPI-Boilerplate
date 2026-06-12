@@ -14,18 +14,20 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
 from ..modules.common.utils.error_handler import register_exception_handlers
+from .cache.config import CacheSettings
 from .cache.initialize import close_cache, initialize_cache
-from .config.settings import (
-    CacheSettings,
-    DatabaseSettings,
-    EnvironmentOption,
-    EnvironmentSettings,
-    RateLimiterSettings,
-    Settings,
-    get_settings,
-)
+from .config.base import EnvironmentOption
+from .config.settings import Settings, get_settings
+from .database.mongodb import close_mongo_client
+from .database.mongodb.config import MongoDBSettings
+from .database.mysql import engine as mysql_engine
+from .database.mysql.config import MySQLSettings
+from .database.postgresql.config import PostgreSQLSettings
 from .database.postgresql.session import create_tables
+from .kafka import shutdown_kafka, startup_kafka
+from .kafka.config import KafkaSettings
 from .middleware import ClientCacheMiddleware, SecurityHeadersMiddleware
+from .rate_limit.config import RateLimiterSettings
 from .rate_limit.initialize import close_rate_limiter, initialize_rate_limiter
 from .rate_limit.middleware import RateLimiterMiddleware
 
@@ -49,7 +51,7 @@ def lifespan_factory(
         await set_threadpool_tokens()
 
         try:
-            if isinstance(settings, DatabaseSettings) and create_tables_on_startup:
+            if isinstance(settings, PostgreSQLSettings) and create_tables_on_startup:
                 await create_tables()
 
             if isinstance(settings, CacheSettings) and settings.CACHE_ENABLED:
@@ -58,10 +60,22 @@ def lifespan_factory(
             if isinstance(settings, RateLimiterSettings) and settings.RATE_LIMITER_ENABLED:
                 await initialize_rate_limiter()
 
+            if isinstance(settings, KafkaSettings) and settings.KAFKA_ENABLED:
+                await startup_kafka()
+
             initialization_complete.set()
             yield
 
         finally:
+            if isinstance(settings, KafkaSettings) and settings.KAFKA_ENABLED:
+                await shutdown_kafka()
+
+            if isinstance(settings, MongoDBSettings) and settings.MONGODB_ENABLED:
+                await close_mongo_client()
+
+            if isinstance(settings, MySQLSettings) and settings.MYSQL_ENABLED:
+                await mysql_engine.dispose()
+
             if isinstance(settings, CacheSettings) and settings.CACHE_ENABLED:
                 await close_cache()
 
