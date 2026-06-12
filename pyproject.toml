@@ -29,6 +29,7 @@ dependencies = [
     "pymysql>=1.2.0",
     "aiokafka>=0.14.0",
     "hvac>=2.4.0",
+    "aioboto3>=15.5.0",
 ]
 
 [project.optional-dependencies]

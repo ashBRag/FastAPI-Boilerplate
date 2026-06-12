@@ -3,6 +3,7 @@ import os
 
 from starlette.config import Config
 
+from ..aws.config import AWSSettings
 from ..cache.config import CacheSettings
 from ..database.mongodb.config import MongoDBSettings
 from ..database.mysql.config import MySQLSettings
@@ -56,6 +57,7 @@ class Settings(
     CORSSettings,
     CompressionSettings,
     # Infrastructure
+    AWSSettings,
     PostgreSQLSettings,
     MySQLSettings,
     MongoDBSettings,
