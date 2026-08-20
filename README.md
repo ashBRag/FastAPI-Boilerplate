@@ -312,6 +312,7 @@ The application uses structlog for structured, contextual logging with automatic
 ### Logging Context Middleware
 
 Every request automatically gets:
+
 - Unique request ID
 - Session ID (if authenticated)
 - User ID (if authenticated)
@@ -332,6 +333,7 @@ Every request automatically gets:
 The application uses uvloop for enhanced async performance (automatically enabled via Makefile):
 
 **Performance Improvements**:
+
 - 2-4x faster asyncio operations
 - Lower latency for I/O-bound tasks
 - Better connection pool management
