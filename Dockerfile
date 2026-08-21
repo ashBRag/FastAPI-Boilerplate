@@ -18,6 +18,7 @@ ENV APP_ENV=${APP_ENV} \
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    curl \
     && pip install --upgrade pip \
     && pip install uv \
     && rm -rf /var/lib/apt/lists/*
@@ -29,22 +30,13 @@ RUN uv venv && . .venv/bin/activate && uv pip install -e .
 # Copy the application
 COPY . .
 
-# Make entrypoint script executable - do this before changing user
-RUN chmod +x /app/scripts/docker-entrypoint.sh
-
-# Create a non-root user
-RUN useradd -m appuser && chown -R appuser:appuser /app
+# Create log directory and non-root user
+RUN mkdir -p /app/logs \
+    && useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
-
-# Create log directory
-RUN mkdir -p /app/logs
 
 # Default port
 EXPOSE 8000
 
-# Log the environment we're using
-RUN echo "Using ${APP_ENV} environment"
-
 # Command to run the application
-ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

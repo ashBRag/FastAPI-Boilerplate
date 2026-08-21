@@ -1,58 +1,81 @@
-"""This file contains the main application entry point."""
+"""Application entry point: builds the FastAPI app and wires up shared infra.
 
-import os
+The reusable pieces (logging, metrics, rate limiting, middleware) come from
+libs/*; this file is only responsible for assembling them with *this*
+project's settings and routes.
+"""
+
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-)
+from datetime import UTC, datetime
+from typing import Any
 
-from dotenv import load_dotenv
 from fastapi import (
     FastAPI,
     Request,
     status,
 )
-from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from langfuse import Langfuse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.api import api_router
 from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.logging import logger
-from app.core.metrics import setup_metrics
-from app.core.middleware import (
+from libs.db import Database, DatabaseSettings
+from libs.errors import register_exception_handlers
+from libs.limiter import build_limiter
+from libs.logging import setup_logging
+from libs.metrics import (
+    http_request_duration_seconds,
+    http_requests_total,
+    setup_metrics,
+)
+from libs.middleware import (
     LoggingContextMiddleware,
     MetricsMiddleware,
 )
-from app.services.database import database_service
 
-# Load environment variables
-load_dotenv()
+# Configure structlog once, at import time, before anything tries to log.
+logger = setup_logging(settings, extra_context={"environment": settings.ENVIRONMENT.value})
 
-# Initialize Langfuse
-langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-    host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+# Rate limiter instance shared by all @limiter.limit(...) decorated routes.
+limiter = build_limiter(settings.RATE_LIMIT_DEFAULT)
+
+# Single shared engine/session-factory for this service.
+db = Database(
+    DatabaseSettings(
+        host=settings.POSTGRES_HOST,
+        port=settings.POSTGRES_PORT,
+        database=settings.POSTGRES_DB,
+        user=settings.POSTGRES_USER,
+        password=settings.POSTGRES_PASSWORD,
+        pool_size=settings.POSTGRES_POOL_SIZE,
+        max_overflow=settings.POSTGRES_MAX_OVERFLOW,
+    )
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle application startup and shutdown events."""
+    """Log startup/shutdown and verify DB connectivity (non-fatal if it fails)."""
     logger.info(
         "application_startup",
         project_name=settings.PROJECT_NAME,
         version=settings.VERSION,
         api_prefix=settings.API_V1_STR,
     )
+
+    try:
+        await db.connect()
+    except Exception as exc:
+        # Don't crash the whole app if Postgres isn't reachable yet - /health
+        # will report "degraded" instead, which is more useful in a boilerplate
+        # where the DB may come up on its own schedule.
+        logger.error("database_connect_failed", error=str(exc))
+
     yield
+
+    await db.disconnect()
     logger.info("application_shutdown")
 
 
@@ -64,53 +87,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Set up Prometheus metrics
+# Exposes GET /metrics for Prometheus to scrape.
 setup_metrics(app)
 
-# Add logging context middleware (must be added before other middleware to capture context)
-app.add_middleware(LoggingContextMiddleware)
+# Order matters: logging context must be bound before MetricsMiddleware runs,
+# so metrics/logs emitted further down the chain see session_id/user_id.
+app.add_middleware(LoggingContextMiddleware, jwt_secret_key=settings.JWT_SECRET_KEY, jwt_algorithm=settings.JWT_ALGORITHM)
+app.add_middleware(
+    MetricsMiddleware,
+    requests_total=http_requests_total,
+    request_duration_seconds=http_request_duration_seconds,
+)
 
-# Add custom metrics middleware
-app.add_middleware(MetricsMiddleware)
-
-# Set up rate limiter exception handler
+# slowapi needs the limiter on app.state plus an exception handler for 429s.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Consistent {"error": {"code", "message", ...}} shape for AppError subclasses,
+# HTTPException, validation errors, and any unhandled bug (last-resort 500).
+register_exception_handlers(app, logger=logger, debug=settings.DEBUG)
 
-# Add validation exception handler
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors from request data.
-
-    Args:
-        request: The request that caused the validation error
-        exc: The validation error
-
-    Returns:
-        JSONResponse: A formatted error response
-    """
-    # Log the validation error
-    logger.error(
-        "validation_error",
-        client_host=request.client.host if request.client else "unknown",
-        path=request.url.path,
-        errors=str(exc.errors()),
-    )
-
-    # Format the errors to be more user-friendly
-    formatted_errors = []
-    for error in exc.errors():
-        loc = " -> ".join([str(loc_part) for loc_part in error["loc"] if loc_part != "body"])
-        formatted_errors.append({"field": loc, "message": error["msg"]})
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": "Validation error", "errors": formatted_errors},
-    )
-
-
-# Set up CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -119,7 +115,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API router
+# All project-specific routes are mounted under API_V1_STR (see app/api/v1/api.py).
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
@@ -140,26 +136,23 @@ async def root(request: Request):
 
 @app.get("/health")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["health"][0])
-async def health_check(request: Request) -> Dict[str, Any]:
-    """Health check endpoint with environment-specific information.
+async def health_check(request: Request) -> dict[str, Any]:
+    """Liveness + DB connectivity check.
 
     Returns:
-        Dict[str, Any]: Health status information
+        dict[str, Any]: Health status information
     """
     logger.info("health_check_called")
 
-    # Check database connectivity
-    db_healthy = await database_service.health_check()
+    db_healthy = await db.health_check()
 
     response = {
         "status": "healthy" if db_healthy else "degraded",
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT.value,
         "components": {"api": "healthy", "database": "healthy" if db_healthy else "unhealthy"},
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
-    # If DB is unhealthy, set the appropriate status code
     status_code = status.HTTP_200_OK if db_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
-
     return JSONResponse(content=response, status_code=status_code)

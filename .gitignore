@@ -18,6 +18,7 @@ wheels/
 
 # Misc
 *.ipynb
+.vscode
 
-# Reports
-evals/reports/
+
+

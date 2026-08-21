@@ -1,11 +1,10 @@
-"""Base models and common imports for all models."""
+"""Project-level alias for the shared SQLModel base.
 
-from datetime import datetime, UTC
-from typing import List, Optional
-from sqlmodel import Field, SQLModel, Relationship
+Import BaseModel from here in this project's models so the reusable base
+class lives in one place (libs/db/base.py) but call sites stay
+project-idiomatic.
+"""
 
+from libs.db import TimestampedModel as BaseModel
 
-class BaseModel(SQLModel):
-    """Base model with common fields."""
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+__all__ = ["BaseModel"]
