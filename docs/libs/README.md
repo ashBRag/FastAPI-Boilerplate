@@ -20,3 +20,4 @@ so any one of them can be copied into another project on its own.
 | [redis.md](./redis.md) | `libs/redis` | `Cache`, `RedisSettings` |
 | [kafka.md](./kafka.md) | `libs/kafka` | `Producer`, `Consumer`, `KafkaSettings` |
 | [aws.md](./aws.md) | `libs/aws` | `S3Client`, `SqsClient`, `AwsSettings` |
+| [streaming.md](./streaming.md) | `libs/streaming` | `SseEvent`, `sse_response`, `ndjson_response`, `text_chunk_response` |

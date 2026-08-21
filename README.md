@@ -34,6 +34,7 @@ libs/                   # Reusable, project-agnostic building blocks.
   redis/
   kafka/
   aws/
+  streaming/
 ```
 
 ## Requirements
@@ -114,10 +115,16 @@ into its own repo, without touching the rest.
 | `redis` | `Cache`, `RedisSettings` - async Redis client/health check | [docs/libs/redis.md](./docs/libs/redis.md) |
 | `kafka` | `Producer`, `Consumer`, `KafkaSettings` - aiokafka wrappers | [docs/libs/kafka.md](./docs/libs/kafka.md) |
 | `aws` | `S3Client`, `SqsClient`, `AwsSettings` - aioboto3 wrappers (S3 and SQS only) | [docs/libs/aws.md](./docs/libs/aws.md) |
+| `streaming` | `SseEvent`, `sse_response`, `ndjson_response`, `text_chunk_response` - SSE/NDJSON/chunked streaming responses | [docs/libs/streaming.md](./docs/libs/streaming.md) |
 
 Only `db` is currently wired into `app/main.py` (startup connect + `/health`
-check). Wire up `redis`/`kafka`/`aws` in your own project the same way, once you
-actually need them.
+check). Wire up `redis`/`kafka`/`aws`/`streaming` in your own project the same
+way, once you actually need them.
+
+Adding a new `libs/*` package or updating an existing one? See
+[`.claude/skills/libs/SKILL.md`](./.claude/skills/libs/SKILL.md) for the
+conventions (folder layout, decoupling rules, lifecycle methods, verification
+and documentation checklist).
 
 ## Linting & tests
 
